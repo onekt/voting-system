@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Index from "./pages/Index";
 import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
+import ProtectedRoute from "./components/ProtectedRoute";
 import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
 import StudentLogin from "./pages/StudentLogin";
@@ -26,7 +27,10 @@ const App = () => (
           <Route path="/admin-login" element={<Index />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/admin" element={<AdminDashboard />} />
+          <Route
+            path="/admin"
+            element={<ProtectedRoute component={AdminDashboard} allowedRoles={['admin']} />}
+          />
           <Route path="/student-login" element={<StudentLogin />} />
           <Route path="/face-scan" element={<FaceIDScan />} />
           <Route path="/student-register" element={<StudentRegister />} />

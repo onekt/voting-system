@@ -18,6 +18,8 @@ import { useState } from "react";
 import { Eye, EyeOff, Lock, Mail, User, Phone, School, Building } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
+import { supabase } from "../lib/supabaseClient";
+import { type AuthError } from '@supabase/supabase-js';
 const privilegeOptions = [
   "Dean",
   "Class Representative",
@@ -77,6 +79,7 @@ const Register = () => {
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [supabaseError, setSupabaseError] = useState<string | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -94,21 +97,39 @@ const Register = () => {
   });
 
   const selectedPrivilege = form.watch("privilege");
+  const handleInputChange = () => {
+    if (supabaseError) setSupabaseError(null);
+  };
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { confirmPassword, ...requestData } = values;
-    console.log("Admin registration request:", requestData);
+    const { email, password, ...otherFields } = values; // No need for confirmPassword after validation
+    setSupabaseError(null); // Clear previous errors on new submission
 
-    const existingRequests = JSON.parse(localStorage.getItem('adminRequests') || '[]');
-    const newRequest = { ...requestData, id: Date.now(), status: 'pending' };
-    localStorage.setItem('adminRequests', JSON.stringify([...existingRequests, newRequest]));
-
-    toast({
-      title: "Request Sent",
-      description: "Your request to become an admin has been sent for approval.",
+    supabase.auth.signUp(
+      {
+        email: email,
+        password: password,
+      },
+      {
+        data: { // Store other fields in the user's metadata
+          full_name: values.fullName, // Assuming a full_name column in user metadata
+          phone_number: values.phoneNumber, // Assuming a phone_number column
+          school: values.school, // Assuming a school column
+          department: values.department, // Assuming a department column
+          student_id: values.studentId, // Assuming a student_id column
+          privilege: values.privilege, // Store the selected privilege/role
+        }
+      } as any // Cast to any for now, as metadata typing can be complex
+    ).then(( { error } : { error: AuthError | null } ) => {
+      if (error) {
+        console.error("Supabase registration error:", error);
+        setSupabaseError(error.message);
+      }
+    })
+    .catch((error) => {
+      console.error("Unexpected registration error:", error);
+      setSupabaseError(error.message || "An unexpected error occurred. Please try again.");
     });
-    navigate("/");
   }
 
   return (
@@ -120,6 +141,9 @@ const Register = () => {
             Fill in your details to request admin access.
           </CardDescription>
         </CardHeader>
+        {supabaseError && (
+           <p className="text-red-500 text-sm text-center mt-2">{supabaseError}</p>
+        )}
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -150,7 +174,7 @@ const Register = () => {
                   <FormItem>
                     <FormLabel>Student ID <span className="text-xs text-muted-foreground">(required for Students *)</span></FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., 123456789" {...field} maxLength={9} inputMode="numeric" disabled={selectedPrivilege === "Dean" || selectedPrivilege === "Head of Department (HoD)"} />
+                      <Input placeholder="e.g., 123456789" {...field} onChange={(e) => { field.onChange(e); handleInputChange(); }} maxLength={9} inputMode="numeric" disabled={selectedPrivilege === "Dean" || selectedPrivilege === "Head of Department (HoD)"} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -165,7 +189,7 @@ const Register = () => {
                     <FormControl>
                       <div className="relative">
                         <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input placeholder="John Doe" {...field} className="pl-10" />
+                        <Input placeholder="John Doe" {...field} onChange={(e) => { field.onChange(e); handleInputChange(); }} className="pl-10" />
                       </div>
                     </FormControl>
                     <FormMessage />
@@ -181,7 +205,7 @@ const Register = () => {
                     <FormControl>
                       <div className="relative">
                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input placeholder="admin@example.com" {...field} className="pl-10" />
+                        <Input placeholder="admin@example.com" {...field} onChange={(e) => { field.onChange(e); handleInputChange(); }} className="pl-10" />
                       </div>
                     </FormControl>
                     <FormMessage />
@@ -197,7 +221,7 @@ const Register = () => {
                     <FormControl>
                       <div className="relative">
                         <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input placeholder="e.g. +1 234 567 890" {...field} className="pl-10" />
+                        <Input placeholder="e.g. +1 234 567 890" {...field} onChange={(e) => { field.onChange(e); handleInputChange(); }} className="pl-10" />
                       </div>
                     </FormControl>
                     <FormMessage />
@@ -213,7 +237,7 @@ const Register = () => {
                     <FormControl>
                       <div className="relative">
                         <School className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input placeholder="e.g. School of Engineering" {...field} className="pl-10" />
+                        <Input placeholder="e.g. School of Engineering" {...field} onChange={(e) => { field.onChange(e); handleInputChange(); }} className="pl-10" />
                       </div>
                     </FormControl>
                     <FormMessage />
@@ -228,7 +252,7 @@ const Register = () => {
                     <FormLabel>Department <span className="text-xs text-muted-foreground">(N/A for Deans*)</span></FormLabel>
                     <FormControl>
                       <Input placeholder="e.g. Computer Science" {...field} className="pl-10" disabled={selectedPrivilege === "Dean"} />
-                    </FormControl>
+                   </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -246,6 +270,7 @@ const Register = () => {
                           type={showPassword ? "text" : "password"}
                           placeholder="********"
                           {...field}
+                          onChange={(e) => { field.onChange(e); handleInputChange(); }}
                           className="pl-10 pr-10"
                         />
                         <button
@@ -275,6 +300,7 @@ const Register = () => {
                           type={showConfirmPassword ? "text" : "password"}
                           placeholder="********"
                           {...field}
+                          onChange={(e) => { field.onChange(e); handleInputChange(); }}
                           className="pl-10 pr-10"
                         />
                         <button

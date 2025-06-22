@@ -15,16 +15,20 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Link, useNavigate } from "react-router-dom";
 import { Mail } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { supabase } from "../lib/supabaseClient"; // Import the Supabase client
+import { useState } from "react"; // Import useState to manage error message state
 
 const formSchema = z.object({
     email: z.string().email({ message: "Invalid email address." }),
     role: z.enum(["Dean", "Class Representative", "Head of Department (HoD)", "Arbitrage Member", "Guild Council Member"], {
         required_error: "Please select a role.",
     }),
+    password: z.string().min(6, { message: "Password must be at least 6 characters." }), // Add password field
 });
 
 const StudentLogin = () => {
     const navigate = useNavigate();
+    const [error, setError] = useState<string | null>(null); // State for displaying error message
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
@@ -32,15 +36,32 @@ const StudentLogin = () => {
             email: "",
             role: "Dean",
         },
+        // No default value for password for security
     });
 
-    function onSubmit(values: z.infer<typeof formSchema>) {
-        sessionStorage.setItem('studentEmail', values.email);
-        sessionStorage.setItem('studentRole', values.role);
-        // This is a placeholder. In a real app, you'd fetch the user's name from a database.
-        const userName = values.email.split('@')[0].replace('.', ' ').replace(/\d+/g, '').replace(/(^\w{1})|(\s+\w{1})/g, letter => letter.toUpperCase());
-        sessionStorage.setItem('studentName', userName);
-        navigate("/face-scan");
+    // Function to clear error when input changes
+    async function onSubmit(values: z.infer<typeof formSchema>) {
+        const { email, password, role } = values;
+
+        const { data, error } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+        });
+
+        if (error) { // Supabase returned an error
+            console.error("Login failed:", error); // Log the full error object for debugging
+            setError(error.message || "An unexpected error occurred."); // Display Supabase error message or a generic one
+        } else if (data && data.user) { // Successful login
+            // User successfully logged in
+            console.log("User logged in:", data.user);
+            // Redirect the user to the desired page after successful login
+            setError(null); // Clear any previous errors on success
+            // Note: Storing sensitive info like role in sessionStorage might not be the best practice.
+            // Consider fetching user roles from your database after successful auth if roles are not part of the auth payload.
+            // Store relevant user info from Supabase data if needed
+            sessionStorage.setItem('studentRole', role); // Still use the selected role from the form
+            navigate("/face-scan"); // Navigate to face scan upon successful login
+        }
     }
 
     return (
@@ -57,7 +78,13 @@ const StudentLogin = () => {
                 </CardHeader>
                 <CardContent>
                     <Form {...form}>
-                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                        {/* Add onChange handler to clear error on input */}
+                        <form
+                            onSubmit={form.handleSubmit(onSubmit)}
+                            className="space-y-6"
+                            onChange={() => setError(null)} // Clear error on form changes
+                        >
+                             {error && <p className="text-red-500 text-sm">{error}</p>} {/* Display error message */}
                             <FormField
                                 control={form.control}
                                 name="email"
@@ -74,6 +101,25 @@ const StudentLogin = () => {
                                                     type="email"
                                                 />
                                             </div>
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            {/* Add Password Field */}
+                            <FormField
+                                control={form.control}
+                                name="password"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Password</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                placeholder="Enter your password"
+                                                {...field}
+                                                type="password" // Use type="password" for security
+                                            />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>

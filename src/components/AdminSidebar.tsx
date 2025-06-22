@@ -2,16 +2,16 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { BarChart3, Vote, Users, Database, Settings, LogOut, Home, UserCheck } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext'; // Import useAuth hook
 
 interface AdminSidebarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
-  userRole?: string | null;
 }
 
-export const AdminSidebar = ({ activeTab, setActiveTab, userRole }: AdminSidebarProps) => {
+export const AdminSidebar = ({ activeTab, setActiveTab }: AdminSidebarProps) => {
+  const { user, role, isLoading } = useAuth(); // Get user, role, and isLoading from auth context
   const menuItems = [
-    { id: 'overview', label: 'Dashboard', icon: Home },
     { id: 'elections', label: 'Elections', icon: Vote },
     { id: 'candidates', label: 'Candidates', icon: Users },
     { id: 'requests', label: 'Admin Requests', icon: UserCheck, role: 'head-admin' },
@@ -21,7 +21,7 @@ export const AdminSidebar = ({ activeTab, setActiveTab, userRole }: AdminSidebar
   ];
 
   const filteredMenuItems = menuItems.filter(item => !('role' in item) || item.role === userRole);
-
+  
   return (
     <div className="w-64 bg-blue-900 text-white min-h-screen">
       {/* Admin Profile */}
